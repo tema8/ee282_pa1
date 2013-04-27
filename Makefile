@@ -21,6 +21,9 @@ ifneq ($(shell ls /usr/lib/libblas.so 2> /dev/null),)
   CFLAGS += -DBLAS
 endif
 
+
+LDFLAGS += -lm -msse2 
+
 all: $(APP)
 
 $(APP): $(SRCS:.c=.o)
