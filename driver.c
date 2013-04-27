@@ -39,8 +39,15 @@ int test_sizes[] = { 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048 };
 int events[] = { 
   PAPI_TOT_INS,
   PAPI_TOT_CYC,
-  PAPI_L1_DCM,
-  PAPI_L2_TCM,
+  
+  PAPI_FML_INS,
+  //PAPI_FAD_INS,
+  //PAPI_FP_INS,
+  //PAPI_FPU_IDL,
+  PAPI_VEC_INS,
+
+  //PAPI_L1_DCM,
+  //PAPI_L2_TCM,
 };
 
 #define NUM_EVENTS (sizeof(events) / sizeof(int))
