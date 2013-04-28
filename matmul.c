@@ -29,12 +29,18 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
 
 
 void matmul_blocking(int N, const double *A, const double *B, double * restrict C) {
+  const double *in1, *in2;
+  double * restrict res;
   for(int i = 0; i < N; i++) {
     for (int j = 0; j < N; j+=CACHE_LINE) {
+      res = &C[i*N+j];
       for (int k = 0; k < N; k+=CACHE_LINE) {
+	in1 = &A[(i)*N+k];
 	for(int t = 0;t <CACHE_LINE;t++){
+	  in2 = &B[(k+t)*N+j];
 	  for(int l = 0; l<CACHE_LINE;l++  ){
-	    C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
+	    //C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
+	    res[l] += in1[t] * in2[l];
 	    //printf("%d,%d   C[%d][%d] +=  A[%d][%d]*B[%d][%d]     ",t,l  , i, j+l,    i, k+t, k+t, j+l);
 	  }
 	}
