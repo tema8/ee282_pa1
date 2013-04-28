@@ -40,9 +40,17 @@ void matmul_blocking(int N, const double *A, const double *B, double * restrict 
 	for(int t = 0;t <CACHE_LINE;t++){
 	  in2 = &B[(k)*N+j];
 	  for(int l = 0; l<CACHE_LINE;l++  ){
-	    for(int m = 0; m<CACHE_LINE;m++){
+	    __m128d a = _mm_load_sd(&in1[l]);
+	    a = _mm_unpacklo_pd(a,a);
+
+	    for(int m = 0; m<CACHE_LINE;m+=2){
 	    //C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
-	    res[m] += in1[l] * in2[m];
+	    //res[m] += in1[l] * in2[m];
+	    __m128d b  = _mm_load_pd(&in2[m]);
+	    __m128d c  = _mm_load_pd(&res[m]);
+	    c=  _mm_add_pd(c, _mm_mul_pd(a, b));
+	    _mm_store_pd(&res[m], c);
+
 	    //printf("%d,%d   C[%d][%d] +=  A[%d][%d]*B[%d][%d]     ",t,l  , i, j+l,    i, k+t, k+t, j+l);
 	    }
 	    in2+=N;
