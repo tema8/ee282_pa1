@@ -1,0 +1,23 @@
+Clean blocking along cache line
+Added temp variables to reduce instruction count
+Added extra loop to go over cache line for C
+Added SSE to blocked loop
+Dedicated functions with SSE for 2x2-32x32 
+
+ 0x80000032 = PAPI_TOT_INS	Instr completed
+ 0x8000003b = PAPI_TOT_CYC	Total cycles
+ 0x80000061 = PAPI_FML_INS	FPU multiply
+ 0x80000038 = PAPI_VEC_INS	Vector/SIMD instr
+
+Dim.   MFLOPS     Runtime      0x80000032   0x8000003b   0x80000061   0x80000038
+   2 1735.108      0.0000              51           21            4            4
+   4 4250.257      0.0000             187           70           32           16
+   8 4495.804      0.0002            1210          531          257           64
+  16 5430.070      0.0015            9003         3518         2048          256
+  32 4073.133      0.0161           73512        37366        16384         1024
+  64 3825.492      0.1371          614202       318348       131592        32768
+ 128 3334.262      1.2579         4910027      2925427      1052692       262144
+ 256 2529.740     13.2640        39267698     30876494      8421440      2097152
+ 512 1610.513    166.6770       314094350    389019284     67371178     16777216
+1024 1152.011   1864.1170      2512570485   4327434366    538985593    134217728
+2048  918.849  18697.1680     20099834040  43499795259   4311819113   1073741824
