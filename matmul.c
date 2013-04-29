@@ -3,6 +3,7 @@
 
 
 #include <xmmintrin.h>
+#include <stdio.h>
 
 #define MAX_BLOCK 32
 //getconf LEVEL1_DCACHE_LINESIZE
@@ -15,6 +16,7 @@ inline static void matmul_4x4 ( const double *A, const double *B, double * restr
 inline static void matmul_8x8 ( const double *A, const double *B, double * restrict C);
 inline static void matmul_16x16 ( const double *A, const double *B, double * restrict C);
 inline static void matmul_32x32 ( const double *A, const double *B, double * restrict C);
+static void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C);
 
 void matmul(int N, const double* A, const double* B, double* restrict C) {
   if(N==2)
@@ -27,6 +29,10 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
     return matmul_16x16( A, B, C);
   else if(N==32)
     return matmul_32x32( A, B, C);
+  else if(N>64){
+    //printf("\n===Stransen===\n");
+    return matmul_strasen(N, A, N, B, N, C, N);
+  }
   else if(N<=MAX_BLOCK)
     return matmul_sse(N, A, B, C);
   else {
@@ -41,6 +47,146 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
         C[i*N + j] += A[i*N+k]*B[k*N+j];
   */
 }
+
+
+
+void mult_stride(int size, const double *A, int Stride_A,const double *B, int Stride_B, double *C, int Stride_C){
+  for(int j = 0; j < size; j++) {
+    for (int l = 0; l < size; l++) {
+      //printf("C[%d][%d] = ",j,l);
+      for (int i = 0; i < size; i++) {
+	C[j*Stride_C+l] += A[j*Stride_A+i] * B[i*Stride_B+l];
+	//printf("A[%d][%d]*B[%d][%d] + ", j, i, i, l);
+      }
+      //printf("\n");
+    }
+  }
+  //printf("\n");
+}
+
+#define MIN_MULT_SIZE 16
+
+inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C) {
+  const double *in1, *in2;
+  double * restrict res;
+
+  res = C;
+  in1 = A;
+
+  for(int t = 0;t < MIN_MULT_SIZE;t++){
+    in2 = B;
+
+    for(int l = 0; l<MIN_MULT_SIZE;l++  ){
+      __m128d a = _mm_load_sd(&in1[l]);
+      a = _mm_unpacklo_pd(a,a);
+
+      for(int m = 0; m<MIN_MULT_SIZE;m+=2){
+	
+	__m128d b  = _mm_load_pd(&in2[m]);
+	__m128d c  = _mm_load_pd(&res[m]);
+	c =  _mm_add_pd(c, _mm_mul_pd(a, b));
+	_mm_store_pd(&res[m], c);
+      }
+
+      in2+=Stride_B;
+    }
+
+    res+=Stride_C;
+    in1+=Stride_A;
+  }
+}
+
+
+void matadd(int size, const double *A, int Stride_A,const double *B, int Stride_B, double * restrict C, int Stride_C) {
+  for(int i = 0; i < size; i++)
+    for (int j = 0; j < size; j+=2){
+       __m128d a = _mm_load_sd(&A[i*Stride_A+j]);
+       __m128d b = _mm_load_sd(&B[i*Stride_B+j]);
+       _mm_store_pd(&C[i*Stride_C+j], _mm_add_pd(a,b) );
+       //C[i*Stride_C+j] = A[i*Stride_A+j] + B[i*Stride_B+j];
+    }
+}
+
+void matacc(int size, const double *A, int Stride_A,const double *B, int Stride_B, double * restrict C, int Stride_C) {
+  for(int i = 0; i < size; i++)
+    for (int j = 0; j < size; j+=2){
+       __m128d a = _mm_load_sd(&A[i*Stride_A+j]);
+       __m128d b = _mm_load_sd(&B[i*Stride_B+j]);
+       __m128d c = _mm_load_sd(&C[i*Stride_C+j]);
+       _mm_store_pd(&C[i*Stride_C+j], _mm_add_pd(c,_mm_add_pd(a,b)) );
+       //C[i*Stride_C+j] = A[i*Stride_A+j] + B[i*Stride_B+j];
+    }
+}
+
+
+
+void matsub(int size, const double *A, int Stride_A,const double *B, int Stride_B, double * restrict C, int Stride_C){
+  for(int i = 0; i < size; i++)
+    for (int j = 0; j < size; j+=2){
+       __m128d a = _mm_load_sd(&A[i*Stride_A+j]);
+       __m128d b = _mm_load_sd(&B[i*Stride_B+j]);
+       _mm_store_pd(&C[i*Stride_C+j], _mm_sub_pd(a,b) );
+       //C[i*Stride_C+j] = A[i*Stride_A+j] - B[i*Stride_B+j];
+    }
+}
+
+
+void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C) {
+  if(N<=MIN_MULT_SIZE)
+    matmul_32x32_stride(A, Stride_A, B, Stride_B, C, Stride_C);
+  else{
+    double *M[9];
+
+    for(int i=0;i<9;i++)
+      M[i] = (double *) malloc(N/2*N/2*sizeof(double));
+
+
+    matadd(N/2, A, Stride_A, &A[N/2*N+N/2], Stride_A, M[7], N/2);//A[1][1]+A[2][2]
+    matadd(N/2, B, Stride_B, &B[N/2*N+N/2], Stride_B, M[8], N/2);//B[1][1]+B[2][2]
+    matmul_strasen(N/2, M[7], N/2, M[8], N/2, M[0], N/2);
+
+    matadd(N/2, &A[N/2*N+0], Stride_A , &A[N/2*N+N/2], Stride_A, M[7], N/2);//A[2][1]+A[2][2]
+    matmul_strasen(N/2, M[7], N/2, B, Stride_B, M[1], N/2);
+
+    matsub(N/2, &B[0*N+N/2], Stride_B , &B[N/2*N+N/2], Stride_B, M[8], N/2);//B[1][2]-B[2][2]
+    matmul_strasen(N/2, A, Stride_A, M[8], N/2, M[2], N/2);
+
+
+    matsub(N/2, &B[N/2*N+0], Stride_B , B, Stride_B, M[7], N/2);//B[2][1]-B[1][1]
+    matmul_strasen(N/2, &A[N/2*N+N/2], Stride_A, M[7], N/2, M[3], N/2);
+
+    matadd(N/2, A, Stride_A, &A[0*N+N/2], Stride_A, M[8],N/2);//A[1][1]+A[1][2]
+    matmul_strasen(N/2, M[8], N/2, &B[N/2*N+N/2], Stride_B, M[4], N/2);
+
+    matsub(N/2, &A[N/2*N+0], Stride_A , A, Stride_A, M[7], N/2);//A[2][1]-A[1][1]
+    matadd(N/2, B, Stride_B, &B[0*N+N/2], Stride_B, M[8], N/2);//B[1][1]+B[1][2]
+    matmul_strasen(N/2, M[7], N/2, M[8], N/2, M[5], N/2);
+
+    matsub(N/2, &A[0*N+N/2], Stride_A , &A[N/2*N+N/2], Stride_A, M[7], N/2);//A[1][2]-A[2][2]
+    matadd(N/2, &B[N/2*N+0], Stride_B , &B[N/2*N+N/2], Stride_B, M[8], N/2);//B[2][1]+B[2][2]
+    matmul_strasen(N/2, M[7], N/2, M[8], N/2, M[6], N/2);
+
+    matadd(N/2, M[0], N/2, M[3], N/2, M[7], N/2);
+    matsub(N/2, M[6], N/2, M[4], N/2, M[8], N/2);
+    matacc(N/2, M[7], N/2, M[8], N/2, C, Stride_C);
+ 
+    matacc(N/2, M[2], N/2, M[4], N/2, &C[0*N+N/2], Stride_C);
+
+    matacc(N/2, M[1], N/2, M[3], N/2, &C[N/2*N+0], Stride_C);
+
+    matsub(N/2, M[0], N/2, M[1], N/2, M[7], N/2);
+    matadd(N/2, M[2], N/2, M[5], N/2, M[8], N/2);
+    matacc(N/2, M[7], N/2, M[8], N/2, &C[N/2*N+N/2], Stride_C);
+
+    for(int i=0;i<9;i++){
+      free(M[i]);
+    }
+  }
+  
+}
+
+
+
 
 
 void matmul_blocking(int N, const double *A, const double *B, double * restrict C) {

@@ -1,0 +1,27 @@
+Clean blocking along cache line
+Added temp variables to reduce instruction count
+Added extra loop to go over cache line for C
+Added SSE to blocked loop
+Dedicated functions with SSE for 2x2-32x32 
+Implemented Strassen algorith for N=128 and up with 32x32 kernel
+
+
+ 0x80000032 = PAPI_TOT_INS	Instr completed
+ 0x8000003b = PAPI_TOT_CYC	Total cycles
+ 0x80000061 = PAPI_FML_INS	FPU multiply
+ 0x80000038 = PAPI_VEC_INS	Vector/SIMD instr
+
+Dim.   MFLOPS     Runtime      0x80000032   0x8000003b   0x80000061   0x80000038
+   2 1721.093      0.0000              53           22            4            4
+   4 4173.476      0.0000             189           71           32           16
+   8 4806.114      0.0002            1212          495          256           64
+  16 5451.168      0.0015            9005         3490         2048          256
+  32 4074.903      0.0161           73514        37348        16384         1024
+  64 3818.677      0.1373          614263       318883       131592        32768
+ 128 3295.993      1.2725         5281366      3036296       707265        88583
+ 256 3498.347      9.5915        38238155     23086632      4950587       620081
+ 512 3470.931     77.3382       272671884    181132370     34667302      4341281
+1024 3639.578    590.0365      1928648790   1355986736    242631405     30389723
+2048 3983.951   4312.2690     13580226873  10000759209   1698355810    212728863
+
+
