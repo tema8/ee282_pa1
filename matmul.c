@@ -231,58 +231,45 @@ void matmul_blocking(int N, const double *A, const double *B, double * restrict 
 
 
 inline static void matmul_2x2(const double* A, const double* B, double* restrict C) {
-
-
+  
+  
   const double *in1, *in2;
   double * restrict res;
 
+  res = C;
+  in1 = A;
 
-	res = C;
-	in1 = A;
+  in2 = B;
 
-	//for(int t = 0;t <2;t++){
-	  in2 = B;
+  __m128d a = _mm_load_pd(in1);
+  __m128d a1 = _mm_unpacklo_pd(a,a);
 
-	    __m128d a = _mm_load_sd(in1);
-	    a = _mm_unpacklo_pd(a,a);
-
-	    __m128d b  = _mm_load_pd(in2);
-	    __m128d c  = _mm_load_pd(res);
-	    __m128d c1 = _mm_add_pd(c, _mm_mul_pd(a, b));
-	    _mm_store_pd(res, c1);
-
-	    __m128d a1 = _mm_load_sd(in1+1);
-	    a1 = _mm_unpacklo_pd(a1,a1);
-
-	    __m128d b2  = _mm_load_pd(in2+2);
-
-	    c1=  _mm_add_pd(c1, _mm_mul_pd(a1, b2));
-	    _mm_store_pd(res, c1);
-
-	    in1+=2;
-	    in2+=2;
-	    res+=2;
+  __m128d b  = _mm_load_pd(in2);
+  __m128d c  = _mm_load_pd(res);
+  a = _mm_unpackhi_pd(a,a);
+  __m128d b2  = _mm_load_pd(in2+2);
+  __m128d c1 = _mm_add_pd(c, _mm_mul_pd(a1, b));
 
 
-	    a = _mm_load_sd(in1);
-	    a = _mm_unpacklo_pd(a,a);
+  c1=  _mm_add_pd(c1, _mm_mul_pd(a, b2));
+  _mm_store_pd(res, c1);
 
-	    //b  = _mm_load_pd(in2);
-	    c  = _mm_load_pd(res);
-	    c1 = _mm_add_pd(c, _mm_mul_pd(a, b));
-	    _mm_store_pd(res, c1);
-
-	    a1 = _mm_load_sd(in1+1);
-	    a1 = _mm_unpacklo_pd(a1,a1);
-
-	    //b2  = _mm_load_pd(in2+2);
-
-	    c1=  _mm_add_pd(c1, _mm_mul_pd(a1, b2));
-	    _mm_store_pd(res, c1);
+  in1+=2;
+  //in2+=2;
+  res+=2;
 
 
+  a = _mm_load_pd(in1);
+  a1 = _mm_unpacklo_pd(a,a);
 
-	    //}
+  c  = _mm_load_pd(res);
+  a = _mm_unpackhi_pd(a,a);
+
+  c1 = _mm_add_pd(c, _mm_mul_pd(a1, b));
+
+  c1=  _mm_add_pd(c1, _mm_mul_pd(a, b2));
+  _mm_store_pd(res, c1);
+
 }
 
 
