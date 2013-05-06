@@ -8,8 +8,10 @@
 #define MAX_BLOCK 32
 //getconf LEVEL1_DCACHE_LINESIZE
 #define CACHE_LINE (64/sizeof(double))
+#define L2_BLOCK_SIZE 256
 
 static void matmul_blocking(int N, const double* A, const double* B, double * restrict C);
+static void matmul_blocking_l2(int N, const double* A, const double* B, double * restrict C);
 inline static void matmul_sse(int N, const double* A, const double* B, double * restrict C);
 inline static void matmul_2x2(const double* A, const double* B, double* restrict C);
 inline static void matmul_4x4 ( const double *A, const double *B, double * restrict C);
@@ -29,15 +31,17 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
     return matmul_16x16( A, B, C);
   else if(N==32)
     return matmul_32x32( A, B, C);
-  else if(N>64){
+/*  else if(N>64){
     //printf("\n===Stransen===\n");
     return matmul_strasen(N, A, N, B, N, C, N);
-  }
+  }*/
   else if(N<=MAX_BLOCK)
     return matmul_sse(N, A, B, C);
-  else {
+  else if (N<=L2_BLOCK_SIZE)
     return matmul_blocking(N,A,B,C);
-  }
+  else
+	return matmul_blocking_l2(N,A,B,C);
+
 
   /*  int i, j, k;
 
@@ -189,24 +193,66 @@ void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int S
 
 
 
+void matmul_blocking_l2(int N, const double *A, const double *B, double * restrict C) {
+  const double *in1, *in2;
+  double * restrict res;
+
+  for(int i2 = 0; i2 < N; i2+=L2_BLOCK_SIZE) {
+	  for(int j2 = 0; j2 < N; j2+=L2_BLOCK_SIZE) {
+		  for(int k2 = 0; k2 < N; k2+=L2_BLOCK_SIZE) {
+  for(int i1 = 0; i1 < L2_BLOCK_SIZE; i1+=MAX_BLOCK) {
+    for (int j1 = 0; j1 < L2_BLOCK_SIZE; j1+=MAX_BLOCK) {
+      for (int k1 = 0; k1 < L2_BLOCK_SIZE; k1+=MAX_BLOCK) {
+        res = &C[(i2+i1)*N+j2+j1];
+		in1 = &A[(i2+i1)*N+k2+k1];
+
+		for(int t = 0;t <MAX_BLOCK;t++){
+		  in2 = &B[(k2+k1)*N+j2+j1];
+		  for(int l = 0; l<MAX_BLOCK;l++  ){
+			__m128d a = _mm_load_sd(&in1[l]);
+			a = _mm_unpacklo_pd(a,a);
+			
+			for(int m = 0; m<MAX_BLOCK;m+=2){
+			//C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
+			//res[m] += in1[l] * in2[m];
+			__m128d b  = _mm_load_pd(&in2[m]);
+			__m128d c  = _mm_load_pd(&res[m]);
+			c=  _mm_add_pd(c, _mm_mul_pd(a, b));
+			_mm_store_pd(&res[m], c);
+
+			//printf("%d,%d   C[%d][%d] +=  A[%d][%d]*B[%d][%d]     ",t,l  , i, j+l,    i, k+t, k+t, j+l);
+			}
+			in2+=N;
+		  }
+		  res+=N;
+		  in1+=N;
+		}
+	  }
+	}
+  }
+		  }
+	  }
+  }
+}
+
 void matmul_blocking(int N, const double *A, const double *B, double * restrict C) {
   const double *in1, *in2;
   double * restrict res;
 
-  for(int i = 0; i < N; i+=CACHE_LINE) {
-    for (int j = 0; j < N; j+=CACHE_LINE) {
-      for (int k = 0; k < N; k+=CACHE_LINE) {
+  for(int i = 0; i < N; i+=MAX_BLOCK) {
+    for (int j = 0; j < N; j+=MAX_BLOCK) {
+      for (int k = 0; k < N; k+=MAX_BLOCK) {
 	res = &C[i*N+j];
 	in1 = &A[(i)*N+k];
 
-	for(int t = 0;t <CACHE_LINE;t++){
+	for(int t = 0;t <MAX_BLOCK;t++){
 	  in2 = &B[(k)*N+j];
 
-	  for(int l = 0; l<CACHE_LINE;l++  ){
+	  for(int l = 0; l<MAX_BLOCK;l++  ){
 	    __m128d a = _mm_load_sd(&in1[l]);
 	    a = _mm_unpacklo_pd(a,a);
 
-	    for(int m = 0; m<CACHE_LINE;m+=2){
+	    for(int m = 0; m<MAX_BLOCK;m+=2){
 	    //C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
 	    //res[m] += in1[l] * in2[m];
 	    __m128d b  = _mm_load_pd(&in2[m]);
