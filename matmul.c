@@ -19,6 +19,7 @@ inline static void matmul_8x8 ( const double *A, const double *B, double * restr
 inline static void matmul_16x16 ( const double *A, const double *B, double * restrict C);
 inline static void matmul_32x32 ( const double *A, const double *B, double * restrict C);
 static void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C);
+extern void* memcpy();
 
 void matmul(int N, const double* A, const double* B, double* restrict C) {
   if(N==2)
@@ -196,6 +197,17 @@ void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int S
 void matmul_blocking_l2(int N, const double *A, const double *B, double * restrict C) {
   const double *in1, *in2;
   double * restrict res;
+  double * B_copy_opt = (double *) malloc(N*N*sizeof(double));
+  const int COPY_SIZE = MAX_BLOCK*sizeof(double);
+  for(int i = 0; i < N; i+=MAX_BLOCK) {
+    for (int j = 0; j < N; j+=MAX_BLOCK) {
+		for(int k = 0; k < MAX_BLOCK; k++){
+			memcpy(&B_copy_opt[i*N + j*MAX_BLOCK + k*MAX_BLOCK], &B[i*N + k*N + j], COPY_SIZE);
+		}		
+	}
+  }
+  
+
 
   for(int i2 = 0; i2 < N; i2+=L2_BLOCK_SIZE) {
 	  for(int j2 = 0; j2 < N; j2+=L2_BLOCK_SIZE) {
@@ -207,22 +219,24 @@ void matmul_blocking_l2(int N, const double *A, const double *B, double * restri
 		in1 = &A[(i2+i1)*N+k2+k1];
 
 		for(int t = 0;t <MAX_BLOCK;t++){
-		  in2 = &B[(k2+k1)*N+j2+j1];
+//		  in2 = &B[(k2+k1)*N+j2+j1];
+		  in2 = &B_copy_opt[(k2+k1)*N+(j2+j1)*MAX_BLOCK];
 		  for(int l = 0; l<MAX_BLOCK;l++  ){
 			__m128d a = _mm_load_sd(&in1[l]);
 			a = _mm_unpacklo_pd(a,a);
 			
 			for(int m = 0; m<MAX_BLOCK;m+=2){
-			//C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
-			//res[m] += in1[l] * in2[m];
-			__m128d b  = _mm_load_pd(&in2[m]);
-			__m128d c  = _mm_load_pd(&res[m]);
-			c=  _mm_add_pd(c, _mm_mul_pd(a, b));
-			_mm_store_pd(&res[m], c);
-
-			//printf("%d,%d   C[%d][%d] +=  A[%d][%d]*B[%d][%d]     ",t,l  , i, j+l,    i, k+t, k+t, j+l);
+				//C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
+				//res[m] += in1[l] * in2[m];
+				__m128d b  = _mm_load_pd(&in2[m]);
+				__m128d c  = _mm_load_pd(&res[m]);
+				c=  _mm_add_pd(c, _mm_mul_pd(a, b));
+				_mm_store_pd(&res[m], c);
+				//printf("%d,%d   C[%d][%d] +=  A[%d][%d]*B[%d][%d]     ",t,l  , i, j+l,    i, k+t, k+t, j+l);
 			}
-			in2+=N;
+
+//			in2+=N;
+			in2+=MAX_BLOCK;
 		  }
 		  res+=N;
 		  in1+=N;
@@ -252,15 +266,48 @@ void matmul_blocking(int N, const double *A, const double *B, double * restrict 
 	    __m128d a = _mm_load_sd(&in1[l]);
 	    a = _mm_unpacklo_pd(a,a);
 
-	    for(int m = 0; m<MAX_BLOCK;m+=2){
-	    //C[i*N+j+l] += A[(i)*N+k+t] * B[(k+t)*N+j+l];
-	    //res[m] += in1[l] * in2[m];
-	    __m128d b  = _mm_load_pd(&in2[m]);
-	    __m128d c  = _mm_load_pd(&res[m]);
-	    c=  _mm_add_pd(c, _mm_mul_pd(a, b));
-	    _mm_store_pd(&res[m], c);
-	    //printf("%d,%d   C[%d][%d] +=  A[%d][%d]*B[%d][%d]     ",t,l  , i, j+l,    i, k+t, k+t, j+l);
+	    for(int m = 0; m<MAX_BLOCK-CACHE_LINE;m+=CACHE_LINE){
+			_mm_prefetch(&in2[m+CACHE_LINE], _MM_HINT_T0);
+			_mm_prefetch(&res[m+CACHE_LINE], _MM_HINT_T0);
+			__m128d b  = _mm_load_pd(&in2[m]);
+			__m128d c  = _mm_load_pd(&res[m]);
+			c=  _mm_add_pd(c, _mm_mul_pd(a, b));
+			_mm_store_pd(&res[m], c);
+
+			__m128d b1  = _mm_load_pd(&in2[m+2]);
+			__m128d c1  = _mm_load_pd(&res[m+2]);
+			c1=  _mm_add_pd(c1, _mm_mul_pd(a, b1));
+			_mm_store_pd(&res[m+2], c1);
+
+			__m128d b2  = _mm_load_pd(&in2[m+4]);
+			__m128d c2  = _mm_load_pd(&res[m+4]);
+			c2=  _mm_add_pd(c2, _mm_mul_pd(a, b2));
+			_mm_store_pd(&res[m+4], c2);
+
+			__m128d b3  = _mm_load_pd(&in2[m+6]);
+			__m128d c3  = _mm_load_pd(&res[m+6]);
+			c3=  _mm_add_pd(c3, _mm_mul_pd(a, b3));
+			_mm_store_pd(&res[m+6], c3);
 	    }
+			__m128d b  = _mm_load_pd(&in2[MAX_BLOCK-8]);
+			__m128d c  = _mm_load_pd(&res[MAX_BLOCK-8]);
+			c=  _mm_add_pd(c, _mm_mul_pd(a, b));
+			_mm_store_pd(&res[MAX_BLOCK-8], c);
+
+			__m128d b1  = _mm_load_pd(&in2[MAX_BLOCK-6]);
+			__m128d c1  = _mm_load_pd(&res[MAX_BLOCK-6]);
+			c1=  _mm_add_pd(c1, _mm_mul_pd(a, b1));
+			_mm_store_pd(&res[MAX_BLOCK-6], c1);
+
+			__m128d b2  = _mm_load_pd(&in2[MAX_BLOCK-4]);
+			__m128d c2  = _mm_load_pd(&res[MAX_BLOCK-4]);
+			c2=  _mm_add_pd(c2, _mm_mul_pd(a, b2));
+			_mm_store_pd(&res[MAX_BLOCK-4], c2);
+
+			__m128d b3  = _mm_load_pd(&in2[MAX_BLOCK-2]);
+			__m128d c3  = _mm_load_pd(&res[MAX_BLOCK-2]);
+			c3=  _mm_add_pd(c3, _mm_mul_pd(a, b3));
+			_mm_store_pd(&res[MAX_BLOCK-2], c3);
 	    in2+=N;
 	  }
 	  res+=N;
