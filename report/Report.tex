@@ -163,12 +163,9 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 
 \subsection{Dedicated Functions}
 {\bf (split this into two sections dedicated functions and strassen kernel?) }
+We wrote the generic function that can do any size using all the trick the could think of: blocking, loop reodering, sse etc. but the performance still was not enough. Based on the succesfull experiment using dedicated functions for small N (2-32) we created similar functions for all other size. Dedicate function have an advantage that all the loop boundaries are fixed as well as arguments in pointer manipulations. This allows the compile to do more agrresive optimizations (like uroll some loops and reorder operations) and reduces the total instruction count.  For small N  the general function can be simlified - the 3 outer loops are not needed and we could reuse data in reqisters from previous loop iterations  - that mean less load&stores. 
+The results of this opimization varried, but on average we so about 20% improvement. The best case was 2x2 kernel where we when from 103 to 51 instructions and by reusing registers to about 40 (number varies from compile to compile) and over 2 times performance increase, for 64x64 the instruction count was reduced from 483K to 422K and performance went up by 25%.
 
-We used dedicated functions for $2\times2$-$256\times256$, this gives compiler a chance to do better optimization because loop size is fixed.  On average, there is a $2\times$ increase of MOPS for $2\times2$-$256\times256$.
-
-We also rewrote the kernel function ($32\times32$) of Strassen.  We realized that we had great reuse of A but C was loaded/stored N times and we should unroll
-that to increase temporal locality. This means reading several A value and computing A[1][1]*B[1][1]+A[1][2]*B[2][1] vs just A[1][1]*B[1][1] as long as
-unroll factor is small and we don't evict things from the cache.  This will be better because it reuses a number of load/stores.  For instance, for 32x32 we used to have 19980 loads and 18503 stores, with the new code we get 21516/4103.  After implementation we observed a significant increase of MOPS for $512\times512$ and above.
 
 \begin{table}[htbp]
 \tiny
@@ -212,6 +209,10 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \label{}
 \end{table}
 
+
+\subsection{Loop unrolling/ blocking}
+Loop unrolling is similar to blocking but the reason we call in different is that it had a different goal. Blocking was aimed to reduce the miss rate to the cache while unrolling to reduce the number or operations espcially load/store.
+The optimization was started to increase 32x32 performance because there was a big fall from 16 to 32 and the reason initiallyt was unclear - the cache miss rate was pretty low. After examining the code we realize that we pulled A and then computer sumterms of every C meaning that we load/strore C every time that A changes and if we unroll the loop and read 2-4-8 different A values, we can compute 2-4-8 componets of each C and cut the number of load/store opetation and math operation (C is accumulator and by working on 2-4-8 we can implement a tree adder structure instead of array like). After implementing this we saw total instructions drop from 73485 to 55808 and load/store from 19980/18503 to 21516/4103 which gave a performance increace of 60% (4070MFLOPS vs 6515)
 
 \subsection{Compiler Flags}
 For all the optimizations that we have implemented above, we used GCC compiler.  ICC gives worse results except $2 \times 2$ case which is better due to fewer instructions.

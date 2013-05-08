@@ -4,6 +4,7 @@
 
 #include <xmmintrin.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define MAX_BLOCK 32
 //getconf LEVEL1_DCACHE_LINESIZE
@@ -52,10 +53,10 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
     return matmul_1Kx1K( A, B, C);
   else if(N==2048)
     return matmul_2Kx2K( A, B, C);
-  //else if(N>512){
-  //  //printf("\n===Stransen===\n");
-  //  return matmul_strasen(N, A, N, B, N, C, N);
-  //}
+  else if(N>512){
+    //printf("\n===Stransen===\n");
+    return matmul_strasen(N, A, N, B, N, C, N);
+  }
   else {
     return matmul_blocking(N,A,B,C);
   }
@@ -98,9 +99,10 @@ void matsub(int size, const double *A, int Stride_A,const double *B, int Stride_
     }
 }
 
+#define KERNEL_SIZE 32
 
 void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C) {
-  if(N<=32)
+  if(N<=KERNEL_SIZE)
     matmul_32x32_stride(A, Stride_A, B, Stride_B, C, Stride_C);
   else{
     double *M[9];
@@ -873,10 +875,10 @@ inline static void matmul_32x32 ( const double *A, const double *B, double * res
 
 }
 
-inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C) {
+inline static void matmul_32x32_stride_ ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C) {
   const double *in1, *in2;
   double * restrict res;
-  const int N = 32;
+  const int N = KERNEL_SIZE;//64;
 
   res = C;
   in1 = A;
@@ -905,12 +907,12 @@ _mm_store_pd(&res[m], c);
 
 //#define UNROLL 1
 
-inline static void matmul_32x32_stride_ ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C){
+inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C){
   const double *in1, *in2;
   double * restrict res;
 
   const int UNROLL = 4;
-  const int N = 32;
+  const int N = KERNEL_SIZE;//32;
 
   __m128d a[UNROLL];
   __m128d b[UNROLL];
@@ -964,50 +966,5 @@ inline static void matmul_32x32_stride_ ( const double *A, int Stride_A, const d
 	  in1+=Stride_A;
 
   }
-
-
-
-  
-
-
-
 }
-
-
-
-
-
-//N has to be even
-inline static void matmul_sse(int N, const double* A, const double* B, double* restrict C) {
-
-
-  const double *in1, *in2;
-  double * restrict res;
-
-
-	res = C;
-	in1 = A;
-
-	for(int t = 0;t <N;t++){
-	  in2 = B;
-
-	  for(int l = 0; l<N;l++  ){
-	    __m128d a =  _mm_load1_pd(in1+l);//_mm_load_sd(&in1[l]);
-	    //a = _mm_unpacklo_pd(a,a);
-
-	    for(int m = 0; m<N;m+=2){
-	    __m128d b  = _mm_load_pd(&in2[m]);
-	    __m128d c  = _mm_load_pd(&res[m]);
-	    c=  _mm_add_pd(c, _mm_mul_pd(a, b));
-	    _mm_store_pd(&res[m], c);
-
-	    }
-	    in2+=N;
-	  }
-	  res+=N;
-	  in1+=N;
-	}
-
-}
-
 

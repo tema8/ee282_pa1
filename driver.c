@@ -27,6 +27,7 @@ void matmul(int N, const double* A, const double* B, double* C);
 
 // For simplicity, test sizes are restricted to be power of 2.
 int test_sizes[] = { 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048 };
+//int test_sizes[] = {  512, 1024, 2048 };
 #define NUM_TESTS (sizeof(test_sizes) / sizeof(int))
 
 #ifdef PAPI
@@ -64,12 +65,12 @@ int events[] = {
   //PAPI_SR_INS,
 
   //$ Misses
-  //PAPI_L1_DCM,
-  //PAPI_L2_TCM,
+  PAPI_L1_DCM,
+  PAPI_L2_TCM,
 
   //$ Access
-  PAPI_L1_DCA,
-  PAPI_L2_TCA ,
+  //PAPI_L1_DCA,
+  //PAPI_L2_TCA ,
 
 
   //PAPI_L1_ICA,
