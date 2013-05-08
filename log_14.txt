@@ -1,0 +1,48 @@
+* Rewrote 32x32: changed the loop variables to correspond to navie code and 
+removed temp variables to make more clear what is going on. I realized that 
+I had a great reuse of A but C was loaded/stored N times and I should unroll
+that to increase temporal locality. This means reading sevral A value and 
+computing A[1][1]*B[1][1]+A[1][2]*B[2][1] vs just A[1][1]*B[1][1] as long as
+unroll factor is small and I don't evic thing from $ this will be better 
+because it resudes number of load/stores
+* May UNROLL as a define to experiment easier
+* UNROLL=4 gives 6500MOPS
+* For 32x32 we used to have 19980 loads and 18503 stores with the new code 
+we get 21516/4103
+
+* Added the same unroll strategy to general blocking code and changed the
+CACHE_LINE parametter to 32 wich is effectively blocking parammeter now
+* For N > 64 UNROLL=8 seems to be best while for N=32&64 UNROLL=8 is better
+
+*Added unroll strategy to 32x32 strided kernel of Strassen
+
+*Fixed 32x32 kernel for Strassen
+
+*Chnaged loop order in blockin function now mid sized matrices are decent
+
+*Made dedicated functions for 64,128,256 based on matmul_blocking. This gives
+compiler a change to do better optimizations becase loop bound is fixed
+
+*Made all functions dedicated call from 8 to 2048 based on generic matmult_blocking
+with different UNROLL parammeters. Strassen kernell doesn't work for sizes over 32-
+no time to debug why, but if I could get it to 256 the large matcies would have been
+faster with Strassen (right now they don't use it)
+
+ 0x80000032 = PAPI_TOT_INS	Instr completed
+ 0x8000003b = PAPI_TOT_CYC	Total cycles
+ 0x80000000 = PAPI_L1_DCM	L1D cache misses
+ 0x80000007 = PAPI_L2_TCM	L2 cache misses
+
+Dim.   MFLOPS     Runtime      0x80000032   0x8000003b   0x80000000   0x80000007
+   2 2252.419      0.0000              37           16            0            0
+   4 4642.203      0.0000             167           64            0            0
+   8 5483.595      0.0002            1028          434            0            0
+  16 5664.894      0.0014            7300         3358            0            0
+  32 6551.686      0.0100           55403        23230           10            0
+  64 6914.399      0.0758          422292       176107         3244            0
+ 128 6817.425      0.6152         3377736      1434244        42958            0
+ 256 6501.609      5.1609        27020866     12032389       513636           90
+ 512 5142.122     52.2032       240684639    121892002     10649198       149363
+1024 4970.716    432.0270      1902186270   1002736117     80563811      2143165
+2048 4535.057   3788.2370     15217487150   8809518477    653247730     28407812
+

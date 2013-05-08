@@ -22,6 +22,9 @@ inline static void matmul_32x32 ( const double *A, const double *B, double * res
 inline static void matmul_64x64(const double *A, const double *B, double * restrict C);
 inline static void matmul_128x128(const double *A, const double *B, double * restrict C);
 inline static void matmul_256x256(const double *A, const double *B, double * restrict C);
+inline static void matmul_512x512(const double *A, const double *B, double * restrict C);
+inline static void matmul_1Kx1K(const double *A, const double *B, double * restrict C);
+inline static void matmul_2Kx2K(const double *A, const double *B, double * restrict C);
 
 inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C);
 static void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C);
@@ -43,10 +46,16 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
     return matmul_128x128( A, B, C);
   else if(N==256)
     return matmul_256x256( A, B, C);
- else if(N>512){
-    //printf("\n===Stransen===\n");
-    return matmul_strasen(N, A, N, B, N, C, N);
-  }
+  else if(N==512)
+    return matmul_512x512( A, B, C);
+  else if(N==1024)
+    return matmul_1Kx1K( A, B, C);
+  else if(N==2048)
+    return matmul_2Kx2K( A, B, C);
+  //else if(N>512){
+  //  //printf("\n===Stransen===\n");
+  //  return matmul_strasen(N, A, N, B, N, C, N);
+  //}
   else {
     return matmul_blocking(N,A,B,C);
   }
@@ -423,6 +432,209 @@ inline static void matmul_256x256(const double *A, const double *B, double * res
 
 
 
+inline static void matmul_512x512(const double *A, const double *B, double * restrict C) {
+
+  const int N = 512;
+  const int UNROLL = 8;
+  const int BLOCK = 64;
+
+  const double *in1, *in2;
+  double * restrict res;
+  __m128d a[UNROLL];
+  __m128d b[UNROLL];
+  __m128d temp[UNROLL/2];
+
+  
+  for(int i = 0; i < N; i+=BLOCK) {
+    for (int j = 0; j < N; j+=BLOCK) {
+      for (int k = 0; k < N; k+=BLOCK) {
+ 
+	//////////////////
+
+	for(int l = 0; l<BLOCK;l+= UNROLL ){
+	  in1 = A +(i)*N+k+l;
+	  res = C +i*N+j;
+
+	  for(int t = 0;t <BLOCK;t++){
+	    //set up
+	    for(int tt =0; tt< UNROLL; tt++)
+	      a[tt] =  _mm_load1_pd(&in1[tt+t*N]);
+
+	    in2 = &B[(k+l)*N+j];
+	    //m corresponds to j
+	    for(int m = 0; m<BLOCK;m+=2){
+	      __m128d c   = _mm_load_pd(res+m+t*N);
+
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_load_pd(in2+(tt)*N+m);
+
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_mul_pd(a[tt], b[tt]);
+	      //set up
+	      for(int tt =0; tt< UNROLL/2;tt++)
+		temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+
+	      if(UNROLL == 1)
+		c =  _mm_add_pd(c, b[0] );
+	      else if(UNROLL == 2)
+		c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
+	      else
+		for(int tt =0; tt< UNROLL/4;tt++)
+		  c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
+
+	      _mm_store_pd(res+m+t*N, c);
+	    }
+	  }
+	}
+
+
+	////////////////
+	
+
+      }
+    }
+  }
+}
+
+
+
+inline static void matmul_1Kx1K(const double *A, const double *B, double * restrict C) {
+
+  const int N = 1024;
+  const int UNROLL = 8;
+  const int BLOCK = 128;
+
+  const double *in1, *in2;
+  double * restrict res;
+  __m128d a[UNROLL];
+  __m128d b[UNROLL];
+  __m128d temp[UNROLL/2];
+
+  
+  for(int i = 0; i < N; i+=BLOCK) {
+    for (int j = 0; j < N; j+=BLOCK) {
+      for (int k = 0; k < N; k+=BLOCK) {
+ 
+	//////////////////
+
+	for(int l = 0; l<BLOCK;l+= UNROLL ){
+	  in1 = A +(i)*N+k+l;
+	  res = C +i*N+j;
+
+	  for(int t = 0;t <BLOCK;t++){
+	    //set up
+	    for(int tt =0; tt< UNROLL; tt++)
+	      a[tt] =  _mm_load1_pd(&in1[tt+t*N]);
+
+	    in2 = &B[(k+l)*N+j];
+	    //m corresponds to j
+	    for(int m = 0; m<BLOCK;m+=2){
+	      __m128d c   = _mm_load_pd(res+m+t*N);
+
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_load_pd(in2+(tt)*N+m);
+
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_mul_pd(a[tt], b[tt]);
+	      //set up
+	      for(int tt =0; tt< UNROLL/2;tt++)
+		temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+
+	      if(UNROLL == 1)
+		c =  _mm_add_pd(c, b[0] );
+	      else if(UNROLL == 2)
+		c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
+	      else
+		for(int tt =0; tt< UNROLL/4;tt++)
+		  c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
+
+	      _mm_store_pd(res+m+t*N, c);
+	    }
+	  }
+	}
+
+
+	////////////////
+	
+
+      }
+    }
+  }
+}
+
+
+
+inline static void matmul_2Kx2K(const double *A, const double *B, double * restrict C) {
+
+  const int N = 2048;
+  const int UNROLL = 8;
+  const int BLOCK = 128;
+
+  const double *in1, *in2;
+  double * restrict res;
+  __m128d a[UNROLL];
+  __m128d b[UNROLL];
+  __m128d temp[UNROLL/2];
+
+  
+  for(int i = 0; i < N; i+=BLOCK) {
+    for (int j = 0; j < N; j+=BLOCK) {
+      for (int k = 0; k < N; k+=BLOCK) {
+ 
+	//////////////////
+
+	for(int l = 0; l<BLOCK;l+= UNROLL ){
+	  in1 = A +(i)*N+k+l;
+	  res = C +i*N+j;
+
+	  for(int t = 0;t <BLOCK;t++){
+	    //set up
+	    for(int tt =0; tt< UNROLL; tt++)
+	      a[tt] =  _mm_load1_pd(&in1[tt+t*N]);
+
+	    in2 = &B[(k+l)*N+j];
+	    //m corresponds to j
+	    for(int m = 0; m<BLOCK;m+=2){
+	      __m128d c   = _mm_load_pd(res+m+t*N);
+
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_load_pd(in2+(tt)*N+m);
+
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_mul_pd(a[tt], b[tt]);
+	      //set up
+	      for(int tt =0; tt< UNROLL/2;tt++)
+		temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+
+	      if(UNROLL == 1)
+		c =  _mm_add_pd(c, b[0] );
+	      else if(UNROLL == 2)
+		c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
+	      else
+		for(int tt =0; tt< UNROLL/4;tt++)
+		  c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
+
+	      _mm_store_pd(res+m+t*N, c);
+	    }
+	  }
+	}
+
+
+	////////////////
+	
+
+      }
+    }
+  }
+}
+
+
 
 inline static void matmul_2x2(const double* A, const double* B, double* restrict C) {
   
@@ -493,64 +705,116 @@ inline static void matmul_4x4 ( const double *A, const double *B, double * restr
 
 
 inline static void matmul_8x8 ( const double *A, const double *B, double * restrict C) {
+  const int UNROLL = 4;
   const double *in1, *in2;
   double * restrict res;
 
+  const int N = 8;
+
+  __m128d a[UNROLL];
+  __m128d b[UNROLL];
+  __m128d temp[UNROLL/2];
+
   res = C;
   in1 = A;
+  in2 = B;
 
-  for(int t = 0;t <8;t++){
-    in2 = B;
+  
+    //l correspond to k
+    for(int k = 0; k<N;k+= UNROLL ){
+  //t correspond to i
+  for(int i = 0;i <N;i++){
+      //set up
+      for(int tt =0; tt< UNROLL; tt++)
+	a[tt] =  _mm_load1_pd(&in1[i*N+k+tt]);
 
-    for(int l = 0; l<8;l++  ){
-      __m128d a = _mm_load1_pd(in1+l);
+      //m corresponds to j
+      for(int j = 0; j<N;j+=2){
+	//set up
+	for(int tt =0; tt< UNROLL;tt++)
+	  b[tt] =  _mm_load_pd(&in2[(k+tt)*N+j]);
 
-      for(int m = 0; m<8;m+=2){
-	
-	__m128d b  = _mm_load_pd(&in2[m]);
-	__m128d c  = _mm_load_pd(&res[m]);
-	c =  _mm_add_pd(c, _mm_mul_pd(a, b));
-	_mm_store_pd(&res[m], c);
+	__m128d c   = _mm_load_pd(&res[i*N+j]);
+	//set up
+	for(int tt =0; tt< UNROLL;tt++)
+	  b[tt] =  _mm_mul_pd(a[tt], b[tt]);
+	//set up
+	for(int tt =0; tt< UNROLL/2;tt++)
+	  temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+
+	if(UNROLL == 1)
+	  c =  _mm_add_pd(c, b[0] );
+	else if(UNROLL == 2)
+	  c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
+	else
+	  for(int tt =0; tt< UNROLL/4;tt++)
+	    c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
+
+	_mm_store_pd(&res[i*N+j], c);
       }
-
-      in2+=8;
     }
 
-    res+=8;
-    in1+=8;
   }
+
 }
+
 
 
 
 inline static void matmul_16x16 ( const double *A, const double *B, double * restrict C) {
+  const int UNROLL = 4;
   const double *in1, *in2;
   double * restrict res;
 
+  const int N = 16;
+
+  __m128d a[UNROLL];
+  __m128d b[UNROLL];
+  __m128d temp[UNROLL/2];
+
   res = C;
   in1 = A;
+  in2 = B;
 
-  for(int t = 0;t <16;t++){
-    in2 = B;
+  
+    //l correspond to k
+    for(int k = 0; k<N;k+= UNROLL ){
+  //t correspond to i
+  for(int i = 0;i <N;i++){
+      //set up
+      for(int tt =0; tt< UNROLL; tt++)
+	a[tt] =  _mm_load1_pd(&in1[i*N+k+tt]);
 
-    for(int l = 0; l<16;l++  ){
-      __m128d a = _mm_load1_pd(in1+l);
+      //m corresponds to j
+      for(int j = 0; j<N;j+=2){
+	//set up
+	for(int tt =0; tt< UNROLL;tt++)
+	  b[tt] =  _mm_load_pd(&in2[(k+tt)*N+j]);
 
-      for(int m = 0; m<16;m+=2){
-	
-	__m128d b  = _mm_load_pd(&in2[m]);
-	__m128d c  = _mm_load_pd(&res[m]);
-	c =  _mm_add_pd(c, _mm_mul_pd(a, b));
-	_mm_store_pd(&res[m], c);
+	__m128d c   = _mm_load_pd(&res[i*N+j]);
+	//set up
+	for(int tt =0; tt< UNROLL;tt++)
+	  b[tt] =  _mm_mul_pd(a[tt], b[tt]);
+	//set up
+	for(int tt =0; tt< UNROLL/2;tt++)
+	  temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+
+	if(UNROLL == 1)
+	  c =  _mm_add_pd(c, b[0] );
+	else if(UNROLL == 2)
+	  c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
+	else
+	  for(int tt =0; tt< UNROLL/4;tt++)
+	    c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
+
+	_mm_store_pd(&res[i*N+j], c);
       }
-
-      in2+=16;
     }
 
-    res+=16;
-    in1+=16;
   }
+
 }
+
 
 
 //#define UNROLL 1
@@ -646,7 +910,7 @@ inline static void matmul_32x32_stride_ ( const double *A, int Stride_A, const d
   double * restrict res;
 
   const int UNROLL = 4;
-  const int N = 64;
+  const int N = 32;
 
   __m128d a[UNROLL];
   __m128d b[UNROLL];
