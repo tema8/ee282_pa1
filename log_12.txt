@@ -1,0 +1,42 @@
+* Rewrote 32x32: changed the loop variables to correspond to navie code and 
+removed temp variables to make more clear what is going on. I realized that 
+I had a great reuse of A but C was loaded/stored N times and I should unroll
+that to increase temporal locality. This means reading sevral A value and 
+computing A[1][1]*B[1][1]+A[1][2]*B[2][1] vs just A[1][1]*B[1][1] as long as
+unroll factor is small and I don't evic thing from $ this will be better 
+because it resudes number of load/stores
+* May UNROLL as a define to experiment easier
+* UNROLL=4 gives 6500MOPS
+* For 32x32 we used to have 19980 loads and 18503 stores with the new code 
+we get 21516/4103
+
+* Added the same unroll strategy to general blocking code and changed the
+CACHE_LINE parametter to 32 wich is effectively blocking parammeter now
+* For N > 64 UNROLL=8 seems to be best while for N=32&64 UNROLL=8 is better
+
+*Added unroll strategy to 32x32 strided kernel of Strassen
+
+*Fixed 32x32 kernel for Strassen
+
+*Chnaged loop order in blockin function now mid sized matrices are decent
+
+
+ 0x80000032 = PAPI_TOT_INS	Instr completed
+ 0x8000003b = PAPI_TOT_CYC	Total cycles
+ 0x80000000 = PAPI_L1_DCM	L1D cache misses
+ 0x80000007 = PAPI_L2_TCM	L2 cache misses
+
+Dim.   MFLOPS     Runtime      0x80000032   0x8000003b   0x80000000   0x80000007
+   2 2094.741      0.0000              43           18            0            0
+   4 4341.880      0.0000             173           68            0            0
+   8 4569.373      0.0002            1149          516            0            0
+  16 5405.015      0.0015            8998         3514            0            0
+  32 5945.347      0.0110           60397        25525            1            0
+  64 5475.109      0.0958          483215       221853         3462           10
+ 128 5097.692      0.8228         3864502      1904659        45066          649
+ 256 4456.169      7.5299        30913776     17431978       490818        29261
+ 512 3690.757     72.7318       247304488    168576548     11078061       337551
+1024 2933.536    732.0460      1670374158   1669436192     44428498      8060438
+2048 3683.276   4664.2910     11772295547  10863860104    318449564     58013551
+
+

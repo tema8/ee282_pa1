@@ -17,7 +17,6 @@ inline static void matmul_4x4 ( const double *A, const double *B, double * restr
 inline static void matmul_8x8 ( const double *A, const double *B, double * restrict C);
 inline static void matmul_16x16 ( const double *A, const double *B, double * restrict C);
 inline static void matmul_32x32 ( const double *A, const double *B, double * restrict C);
-//inline static void matmul_64x64( const double *A, const double *B, double * restrict C) ;
 
 inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C);
 static void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C);
@@ -32,16 +31,12 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
   else if(N==16)
     return matmul_16x16( A, B, C);
   else if(N==32)
-    //return matmul_32x32_stride( A, 32, B, 32, C, 32);
     return matmul_32x32( A, B, C);
-  else if(N>64){
+  else if(N>512){
     //printf("\n===Stransen===\n");
     return matmul_strasen(N, A, N, B, N, C, N);
   }
-  //else if(N<=MAX_BLOCK)
-  //  return matmul_sse(N, A, B, C);
   else {
-    //return matmul_sse(N, A, B, C);
     return matmul_blocking(N,A,B,C);
   }
 
@@ -93,7 +88,7 @@ void matsub(int size, const double *A, int Stride_A,const double *B, int Stride_
 
 
 void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C) {
-  if(N<=64)
+  if(N<=32)
     matmul_32x32_stride(A, Stride_A, B, Stride_B, C, Stride_C);
   else{
     double *M[9];
@@ -155,7 +150,7 @@ void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int S
 
 
 
-#define UNROLL 4
+#define UNROLL 8
 
 void matmul_blocking(int N, const double *A, const double *B, double * restrict C) {
 
@@ -167,76 +162,61 @@ void matmul_blocking(int N, const double *A, const double *B, double * restrict 
   __m128d b[UNROLL];
   __m128d temp[UNROLL/2];
 
-
+  
   for(int i = 0; i < N; i+=CACHE_LINE) {
     for (int j = 0; j < N; j+=CACHE_LINE) {
       for (int k = 0; k < N; k+=CACHE_LINE) {
-	res = &C[i*N+j];
-	in1 = &A[(i)*N+k];
-
-
-
+ 
 	//////////////////
 
+	for(int l = 0; l<CACHE_LINE;l+= UNROLL ){
+	  in1 = A +(i)*N+k+l;
+	  res = C +i*N+j;
 
-  //t correspond to i
-  for(int t = 0;t <CACHE_LINE;t++){
-    in2 = &B[(k)*N+j];
+	  for(int t = 0;t <CACHE_LINE;t++){
+	    //set up
+	    for(int tt =0; tt< UNROLL; tt++)
+	      a[tt] =  _mm_load1_pd(&in1[tt+t*N]);
 
-    //l correspond to k
-    for(int l = 0; l<CACHE_LINE;l+= UNROLL ){
-      //set up
-      for(int tt =0; tt< UNROLL; tt++)
-	a[tt] =  _mm_load1_pd(&in1[l+tt]);
+	    in2 = &B[(k+l)*N+j];
+	    //m corresponds to j
+	    for(int m = 0; m<CACHE_LINE;m+=2){
+	      __m128d c   = _mm_load_pd(res+m+t*N);
 
-      //m corresponds to j
-      for(int m = 0; m<CACHE_LINE;m+=2){
-	//set up
-	for(int tt =0; tt< UNROLL;tt++)
-	  b[tt] =  _mm_load_pd(&in2[(tt)*N+m]);
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_load_pd(in2+(tt)*N+m);
 
-	__m128d c   = _mm_load_pd(&res[m]);
-	//set up
-	for(int tt =0; tt< UNROLL;tt++)
-	  b[tt] =  _mm_mul_pd(a[tt], b[tt]);
-	//set up
-	for(int tt =0; tt< UNROLL/2;tt++)
-	  temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+	      //set up
+	      for(int tt =0; tt< UNROLL;tt++)
+		b[tt] =  _mm_mul_pd(a[tt], b[tt]);
+	      //set up
+	      for(int tt =0; tt< UNROLL/2;tt++)
+		temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
 
-	if(UNROLL == 1)
-	  c =  _mm_add_pd(c, b[0] );
-	else if(UNROLL == 2)
-	  c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
-	else
-	  for(int tt =0; tt< UNROLL/4;tt++)
-	    c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
+	      if(UNROLL == 1)
+		c =  _mm_add_pd(c, b[0] );
+	      else if(UNROLL == 2)
+		c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
+	      else
+		for(int tt =0; tt< UNROLL/4;tt++)
+		  c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
 
-	_mm_store_pd(&res[m], c);
-      }
-	    in2+=N*UNROLL;
-    }
-
-	  res+=N;
-	  in1+=N;
-
-  }
-
-
-
-
-
-
-
+	      _mm_store_pd(res+m+t*N, c);
+	    }
+	  }
+	}
 
 
 	////////////////
-
-
+	
 
       }
     }
   }
 }
+
+
 
 
 
@@ -400,10 +380,10 @@ inline static void matmul_32x32 ( const double *A, const double *B, double * res
   in2 = B;
 
   
-  //t correspond to i
-  for(int i = 0;i <32;i++){
     //l correspond to k
     for(int k = 0; k<32;k+= UNROLL ){
+  //t correspond to i
+  for(int i = 0;i <32;i++){
       //set up
       for(int tt =0; tt< UNROLL; tt++)
 	a[tt] =  _mm_load1_pd(&in1[i*32+k+tt]);
@@ -438,7 +418,7 @@ inline static void matmul_32x32 ( const double *A, const double *B, double * res
 
 }
 
-inline static void matmul_32x32_stride_ ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C) {
+inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C) {
   const double *in1, *in2;
   double * restrict res;
   const int N = 32;
@@ -470,7 +450,7 @@ _mm_store_pd(&res[m], c);
 
 //#define UNROLL 1
 
-inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C){
+inline static void matmul_32x32_stride_ ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C){
   const double *in1, *in2;
   double * restrict res;
 
@@ -612,31 +592,6 @@ inline static void matmul_sse(int N, const double* A, const double* B, double* r
 	  in1+=N;
 	}
 
-  /*
-  __m128d a, a1, a2, b, c, c1;
-   for(int i =0; i<N;i++){
-     for (int j = 0; j < N; j+=2){
-       c1 = _mm_load_pd(&C[i*N+j]);
-
-       for(int k=0;k<N;k+=2){
-	 //a  = _mm_set1_pd(A[i*N+k]);
-	 a  = _mm_load_pd(&A[i*N+k]);
-	 a1 = _mm_unpacklo_pd(a,a);
-	 a2 = _mm_unpackhi_pd(a,a);
-
-	 b  = _mm_load_pd(&B[k*N+j]);
-	 c  = _mm_mul_pd(a1, b);
-	 c1 = _mm_add_pd(c, c1);
-
-	 b  = _mm_load_pd(&B[(k+1)*N+j]);
-	 c  = _mm_mul_pd(a2, b);
-	 c1 = _mm_add_pd(c, c1);
-
-       }
-       _mm_store_pd(&C[i*N+j], c1);
-     }
-   }
-  */
 }
 
 
