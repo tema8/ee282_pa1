@@ -40,14 +40,41 @@ int events[] = {
   PAPI_TOT_INS,
   PAPI_TOT_CYC,
   
-  PAPI_FML_INS,
+  //  PAPI_FML_INS,
   //PAPI_FAD_INS,
   //PAPI_FP_INS,
   //PAPI_FPU_IDL,
-  PAPI_VEC_INS,
+  //  PAPI_VEC_INS,
 
   //PAPI_L1_DCM,
   //PAPI_L2_TCM,
+
+
+  //   PAPI_FML_INS,
+  //  PAPI_FP_OPS,
+  //PAPI_DP_OPS,
+  // PAPI_VEC_DP,
+
+  //  PAPI_VEC_INS,
+  //  PAPI_RES_STL,
+  //PAPI_BR_MSP,
+
+  //Load/Store
+  //PAPI_LD_INS,
+  //PAPI_SR_INS,
+
+  //$ Misses
+  PAPI_L1_DCM,
+  PAPI_L2_TCM,
+
+  //$ Access
+  //PAPI_L1_TCA,
+  //PAPI_L2_TCA ,
+
+
+  //PAPI_L1_ICA,
+  //PAPI_L1_ICH,
+
 };
 
 #define NUM_EVENTS (sizeof(events) / sizeof(int))

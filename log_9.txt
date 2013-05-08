@@ -1,0 +1,38 @@
+* Change _mm_unpacklo_pd to  _mm_load1_pd - not sure if that did anything
+* Somehow if/else statement in the main function affect performance for
+matmul_2x2 - if I DON'T call matmul_blocking(N,A,B,C); I get +300MOPs
+and 41 instructions vs 52
+* Rewrote 32x32: changed the loop variables to correspond to navie code and 
+removed temp variables to make more clear what is going on. I realized that 
+I had a great reuse of A but C was loaded/stored N times and I should unroll
+that to increase temporal locality. This means reading sevral A value and 
+computing A[1][1]*B[1][1]+A[1][2]*B[2][1] vs just A[1][1]*B[1][1] as long as
+unroll factor is small and I don't evic thing from $ this will be better 
+because it resudes number of load/stores
+* May UNROLL as a define to experiment easier
+* UNROLL=4 gives 6500MOPS
+* For 32x32 we used to have 19980 loads and 18503 stores with the new code 
+we get 21516/4103
+
+
+ 0x80000032 = PAPI_TOT_INS	Instr completed
+ 0x8000003b = PAPI_TOT_CYC	Total cycles
+ 0x80000000 = PAPI_L1_DCM	L1D cache misses
+ 0x80000007 = PAPI_L2_TCM	L2 cache misses
+
+Dim.   MFLOPS     Runtime      0x80000032   0x8000003b   0x80000000   0x80000007
+   2 2252.612      0.0000              41           17            0            0
+   4 4435.195      0.0000             171           67            0            0
+   8 4648.103      0.0002            1146          512            0            0
+  16 5236.188      0.0016            8995         3630            0            0
+  32 6514.630      0.0101           55808        23437           35            0
+  64 2814.728      0.1863          950825       432502         8323            0
+ 128 3242.958      1.2934         5281355      3043645       113144            3
+ 256 3401.620      9.8643        38238144     23240495       909540        12005
+ 512 3412.102     78.6716       272671870    185360017      6925836       579884
+1024 3651.953    588.0370      1928648767   1370500520     50254216      5980392
+2048 3827.717   4488.2810     13580226748  10470827231    359277909     64400288
+
+
+
+

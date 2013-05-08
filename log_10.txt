@@ -1,0 +1,35 @@
+* Rewrote 32x32: changed the loop variables to correspond to navie code and 
+removed temp variables to make more clear what is going on. I realized that 
+I had a great reuse of A but C was loaded/stored N times and I should unroll
+that to increase temporal locality. This means reading sevral A value and 
+computing A[1][1]*B[1][1]+A[1][2]*B[2][1] vs just A[1][1]*B[1][1] as long as
+unroll factor is small and I don't evic thing from $ this will be better 
+because it resudes number of load/stores
+* May UNROLL as a define to experiment easier
+* UNROLL=4 gives 6500MOPS
+* For 32x32 we used to have 19980 loads and 18503 stores with the new code 
+we get 21516/4103
+
+* Added the same unroll strategy to general blocking code and changed the
+CACHE_LINE parametter to 32 wich is effectively blocking parammeter now
+* For N > 64 UNROLL=8 seems to be best while for N=32&64 UNROLL=8 is better
+
+ 0x80000032 = PAPI_TOT_INS	Instr completed
+ 0x8000003b = PAPI_TOT_CYC	Total cycles
+ 0x80000000 = PAPI_L1_DCM	L1D cache misses
+ 0x80000007 = PAPI_L2_TCM	L2 cache misses
+
+Dim.   MFLOPS     Runtime      0x80000032   0x8000003b   0x80000000   0x80000007
+   2  995.904      0.0000              51           37            0            0
+   4 4151.524      0.0000             181           72            0            0
+   8 4638.678      0.0002            1156          513            0            0
+  16 5241.965      0.0016            9006         3631            0            0
+  32 6499.975      0.0101           55785        23423           26            0
+  64 5700.754      0.0920          451331       213586         3247            0
+ 128 5086.751      0.8246         3609911      1924386       127197            2
+ 256 3791.416      8.8501        28878028     20620295      2291783         1828
+ 512 3381.241     79.3896       231021042    183838106     19752297       305697
+1024 3497.311    614.0385      1928649340   1442515134     50022304      5981403
+2048 3777.220   4548.2840     13580226777  10554330185    357214829     52719925
+
+
