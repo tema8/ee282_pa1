@@ -17,6 +17,9 @@ inline static void matmul_4x4 ( const double *A, const double *B, double * restr
 inline static void matmul_8x8 ( const double *A, const double *B, double * restrict C);
 inline static void matmul_16x16 ( const double *A, const double *B, double * restrict C);
 inline static void matmul_32x32 ( const double *A, const double *B, double * restrict C);
+//inline static void matmul_64x64( const double *A, const double *B, double * restrict C) ;
+
+inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C);
 static void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C);
 
 void matmul(int N, const double* A, const double* B, double* restrict C) {
@@ -29,8 +32,9 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
   else if(N==16)
     return matmul_16x16( A, B, C);
   else if(N==32)
+    //return matmul_32x32_stride( A, 32, B, 32, C, 32);
     return matmul_32x32( A, B, C);
-  else if(N>512){
+  else if(N>64){
     //printf("\n===Stransen===\n");
     return matmul_strasen(N, A, N, B, N, C, N);
   }
@@ -52,51 +56,6 @@ void matmul(int N, const double* A, const double* B, double* restrict C) {
 
 
 
-void mult_stride(int size, const double *A, int Stride_A,const double *B, int Stride_B, double *C, int Stride_C){
-  for(int j = 0; j < size; j++) {
-    for (int l = 0; l < size; l++) {
-      //printf("C[%d][%d] = ",j,l);
-      for (int i = 0; i < size; i++) {
-	C[j*Stride_C+l] += A[j*Stride_A+i] * B[i*Stride_B+l];
-	//printf("A[%d][%d]*B[%d][%d] + ", j, i, i, l);
-      }
-      //printf("\n");
-    }
-  }
-  //printf("\n");
-}
-
-#define MIN_MULT_SIZE 16
-
-inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C) {
-  const double *in1, *in2;
-  double * restrict res;
-
-  res = C;
-  in1 = A;
-
-  for(int t = 0;t < MIN_MULT_SIZE;t++){
-    in2 = B;
-
-    for(int l = 0; l<MIN_MULT_SIZE;l++  ){
-      __m128d a = _mm_load_sd(&in1[l]);
-      a = _mm_unpacklo_pd(a,a);
-
-      for(int m = 0; m<MIN_MULT_SIZE;m+=2){
-	
-	__m128d b  = _mm_load_pd(&in2[m]);
-	__m128d c  = _mm_load_pd(&res[m]);
-	c =  _mm_add_pd(c, _mm_mul_pd(a, b));
-	_mm_store_pd(&res[m], c);
-      }
-
-      in2+=Stride_B;
-    }
-
-    res+=Stride_C;
-    in1+=Stride_A;
-  }
-}
 
 
 void matadd(int size, const double *A, int Stride_A,const double *B, int Stride_B, double * restrict C, int Stride_C) {
@@ -134,7 +93,7 @@ void matsub(int size, const double *A, int Stride_A,const double *B, int Stride_
 
 
 void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int Stride_B, double* restrict C, int Stride_C) {
-  if(N<=MIN_MULT_SIZE)
+  if(N<=64)
     matmul_32x32_stride(A, Stride_A, B, Stride_B, C, Stride_C);
   else{
     double *M[9];
@@ -189,9 +148,19 @@ void matmul_strasen(int N, const double* A, int Stride_A, const double* B, int S
 
 
 
+
+ 
+
+
+
+
+
 #define UNROLL 4
 
 void matmul_blocking(int N, const double *A, const double *B, double * restrict C) {
+
+  //const int UNROLL = 4;
+
   const double *in1, *in2;
   double * restrict res;
   __m128d a[UNROLL];
@@ -416,6 +385,7 @@ inline static void matmul_16x16 ( const double *A, const double *B, double * res
 //#define UNROLL 1
 
 inline static void matmul_32x32 ( const double *A, const double *B, double * restrict C) {
+  //const int UNROLL = 4;
   const double *in1, *in2;
   double * restrict res;
 
@@ -466,14 +436,146 @@ inline static void matmul_32x32 ( const double *A, const double *B, double * res
 
   }
 
+}
+
+inline static void matmul_32x32_stride_ ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C) {
+  const double *in1, *in2;
+  double * restrict res;
+  const int N = 32;
+
+  res = C;
+  in1 = A;
+
+  for(int t = 0;t < N;t++){
+    in2 = B;
+
+    for(int l = 0; l<N;l++ ){
+      __m128d a = _mm_load1_pd(&in1[l]);
+
+      for(int m = 0; m<N;m+=2){
+
+__m128d b = _mm_load_pd(&in2[m]);
+__m128d c = _mm_load_pd(&res[m]);
+c = _mm_add_pd(c, _mm_mul_pd(a, b));
+_mm_store_pd(&res[m], c);
+      }
+
+      in2+=Stride_B;
+    }
+
+    res+=Stride_C;
+    in1+=Stride_A;
+  }
+}
+
+//#define UNROLL 1
+
+inline static void matmul_32x32_stride ( const double *A, int Stride_A, const double *B, int Stride_B, double * restrict C, int Stride_C){
+  const double *in1, *in2;
+  double * restrict res;
+
+  const int N = 64;
+
+  __m128d a[UNROLL];
+  __m128d b[UNROLL];
+  __m128d temp[UNROLL/2];
+
+  res = C;
+  in1 = A;
+  in2 = B;
+  /*
+  
+  //t correspond to i
+  for(int t = 0;t <N;t++){
+    in2 = B;//&B[(k)*N+j];
+
+    //l correspond to k
+    for(int l = 0; l<N;l+= 1 ){
+      for(int tt =0; tt< UNROLL; tt++)
+	a[tt] =  _mm_load1_pd(&in1[l+tt]);
+      //a[0] =  _mm_load1_pd(&in1[l]);
+
+      //m corresponds to j
+      for(int m = 0; m<N;m+=2){
+	for(int tt =0; tt< UNROLL;tt++)
+	  b[tt] =  _mm_load_pd(&in2[m]);
+	//b[tt] =  _mm_load_pd(&in2[(tt)*Stride_B+m]);
+	//b[0] =  _mm_load_pd(&in2[m]);
+
+	//set up
+	for(int tt =0; tt< UNROLL/2;tt++)
+	  temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+
+	__m128d c   = _mm_load_pd(&res[m]);
+	b[0] =  _mm_mul_pd(a[0], b[0]);
+
+	c =  _mm_add_pd(c, b[0] );
+
+	_mm_store_pd(&res[m], c);
+      }
+      in2+=Stride_B;
+    }
+
+ res+=Stride_C;
+ in1+=Stride_A;
+
+  }
+
+
+  */
+
+
+  
+
+  //t correspond to i
+  for(int t = 0;t <N;t++){
+    in2 = B;//&B[(k)*N+j];
+
+    //l correspond to k
+    for(int l = 0; l<N;l+= UNROLL ){
+      //set up
+      for(int tt =0; tt< UNROLL; tt++)
+	a[tt] =  _mm_load1_pd(&in1[l+tt]);
+
+      //m corresponds to j
+      for(int m = 0; m<N;m+=2){
+	//set up
+	for(int tt =0; tt< UNROLL;tt++)
+	  b[tt] =  _mm_load_pd(&in2[(tt)*Stride_B+m]);
+
+	__m128d c   = _mm_load_pd(&res[m]);
+	//set up
+	for(int tt =0; tt< UNROLL;tt++)
+	  b[tt] =  _mm_mul_pd(a[tt], b[tt]);
+	//set up
+	for(int tt =0; tt< UNROLL/2;tt++)
+	  temp[tt] =  _mm_add_pd(b[2*tt], b[2*tt+1]);
+
+	if(UNROLL == 1)
+	  c =  _mm_add_pd(c, b[0] );
+	else if(UNROLL == 2)
+	  c =  _mm_add_pd(c, _mm_add_pd(b[0], b[1]) );
+	else
+	  for(int tt =0; tt< UNROLL/4;tt++)
+	    c =  _mm_add_pd(c, _mm_add_pd(temp[2*tt], temp[2*tt+1]));
+
+	_mm_store_pd(&res[m], c);
+      }
+	    in2+=Stride_B*UNROLL;
+    }
+
+	  res+=Stride_C;
+	  in1+=Stride_A;
+
+  }
+
+
+
+  
 
 
 
 }
-
-
-
-
 
 
 

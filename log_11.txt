@@ -1,0 +1,37 @@
+* Rewrote 32x32: changed the loop variables to correspond to navie code and 
+removed temp variables to make more clear what is going on. I realized that 
+I had a great reuse of A but C was loaded/stored N times and I should unroll
+that to increase temporal locality. This means reading sevral A value and 
+computing A[1][1]*B[1][1]+A[1][2]*B[2][1] vs just A[1][1]*B[1][1] as long as
+unroll factor is small and I don't evic thing from $ this will be better 
+because it resudes number of load/stores
+* May UNROLL as a define to experiment easier
+* UNROLL=4 gives 6500MOPS
+* For 32x32 we used to have 19980 loads and 18503 stores with the new code 
+we get 21516/4103
+
+* Added the same unroll strategy to general blocking code and changed the
+CACHE_LINE parametter to 32 wich is effectively blocking parammeter now
+* For N > 64 UNROLL=8 seems to be best while for N=32&64 UNROLL=8 is better
+
+*Added unroll strategy to 32x32 strided kernel of Strassen
+
+ 0x80000032 = PAPI_TOT_INS	Instr completed
+ 0x8000003b = PAPI_TOT_CYC	Total cycles
+ 0x80000000 = PAPI_L1_DCM	L1D cache misses
+ 0x80000007 = PAPI_L2_TCM	L2 cache misses
+
+Dim.   MFLOPS     Runtime      0x80000032   0x8000003b   0x80000000   0x80000007
+   2 1811.695      0.0000              51           21            0            0
+   4 4259.747      0.0000             181           70            0            0
+   8 4760.048      0.0002            1156          501            0            0
+  16 5477.212      0.0015            9006         3485            0            0
+  32 6539.170      0.0100           55785        23249           41            0
+  64 5769.950      0.0909          451331       211036         3315            0
+ 128 5257.049      0.7978         4119129      1956315       154989            2
+ 256 4538.479      7.3933        30101484     17626474      1212038        52345
+ 512 4617.296     58.1369       215717947    140693777      8859744       743270
+1024 4709.100    456.0285      1529970264   1070292933     63848824      7472910
+2048 5124.938   3352.2100     10789468371   7874717723    449221185     62438331
+
+
