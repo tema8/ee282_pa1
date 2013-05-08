@@ -162,10 +162,9 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \end{table}
 
 \subsection{Dedicated Functions}
-{\bf (split this into two sections dedicated functions and strassen kernel?) }
-We wrote the generic function that can do any size using all the trick the could think of: blocking, loop reodering, sse etc. but the performance still was not enough. Based on the succesfull experiment using dedicated functions for small N (2-32) we created similar functions for all other size. Dedicate function have an advantage that all the loop boundaries are fixed as well as arguments in pointer manipulations. This allows the compile to do more agrresive optimizations (like uroll some loops and reorder operations) and reduces the total instruction count.  For small N  the general function can be simlified - the 3 outer loops are not needed and we could reuse data in reqisters from previous loop iterations  - that mean less load&stores. 
-The results of this opimization varried, but on average we so about 20% improvement. The best case was 2x2 kernel where we when from 103 to 51 instructions and by reusing registers to about 40 (number varies from compile to compile) and over 2 times performance increase, for 64x64 the instruction count was reduced from 483K to 422K and performance went up by 25%.
+We wrote the generic function that can do any size using all the trick we could think of: blocking, loop reodering, SSE etc. but the performance still was not enough. Based on the successful experiment using dedicated functions for small N (2-32) we created similar functions for all other size. Dedicated function have an advantage that all the loop boundaries are fixed as well as arguments in pointer manipulations. This allows the compiler to do more aggresive optimizations (like unroll some loops and reorder operations) and reduces the total instruction count.  For small N  the general function can be simplified - the 3 outer loops are not needed and we could reuse data in registers from previous loop iterations  - that mean less loads and stores.
 
+The results of this optimization varied, but on average we saw about 20\% improvement. The best case was $2\times2$ kernel where we went from 103 to 51 instructions and by reusing registers to about 40 (number varies from compile to compile) and over 2 times performance increase, for 64x64 the instruction count was reduced from 483K to 422K and performance went up by 25\%.
 
 \begin{table}[htbp]
 \tiny
@@ -188,9 +187,13 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \label{}
 \end{table}
 
-\subsection{Final Results}
+\subsection{Loop Unrolling/ Blocking}
+Loop unrolling is similar to blocking but the reason we call in different is that it had a different goal. Blocking was aimed to reduce the miss rate to the cache while unrolling to reduce the number or operations espcially load/store.
+
+The optimization was started to increase 32x32 performance because there was a big fall from 16 to 32 and the reason initially was unclear - the cache miss rate was pretty low. After examining the code we realize that we pulled A and then computer sumterms of every C meaning that we load/strore C every time that A changes and if we unroll the loop and read 2-4-8 different A values, we can compute 2-4-8 componets of each C and cut the number of load/store opetation and math operation (C is accumulator and by working on 2-4-8 we can implement a tree adder structure instead of array like). After implementing this we saw total instructions drop from 73485 to 55808 and load/store from 19980/18503 to 21516/4103 which gave a performance increace of 60\% (4070MFLOPS vs 6515)
 \begin{table}[htbp]
-\caption{}
+\tiny
+\caption{Loop Unrolling/Blocking}
 \begin{tabular}{|r|r|r|r|r|r|r|r|r|r|r|r|}
 \hline
 Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2 misses & \multicolumn{1}{l|}{L1D accesses} & \multicolumn{1}{l|}{ L2 accesses} & \multicolumn{1}{l|}{L1D miss rate} & \multicolumn{1}{l|}{L2 miss rate} & \multicolumn{1}{l|}{CPI} \\ \hline
@@ -208,11 +211,6 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \end{tabular}
 \label{}
 \end{table}
-
-
-\subsection{Loop unrolling/ blocking}
-Loop unrolling is similar to blocking but the reason we call in different is that it had a different goal. Blocking was aimed to reduce the miss rate to the cache while unrolling to reduce the number or operations espcially load/store.
-The optimization was started to increase 32x32 performance because there was a big fall from 16 to 32 and the reason initiallyt was unclear - the cache miss rate was pretty low. After examining the code we realize that we pulled A and then computer sumterms of every C meaning that we load/strore C every time that A changes and if we unroll the loop and read 2-4-8 different A values, we can compute 2-4-8 componets of each C and cut the number of load/store opetation and math operation (C is accumulator and by working on 2-4-8 we can implement a tree adder structure instead of array like). After implementing this we saw total instructions drop from 73485 to 55808 and load/store from 19980/18503 to 21516/4103 which gave a performance increace of 60% (4070MFLOPS vs 6515)
 
 \subsection{Compiler Flags}
 For all the optimizations that we have implemented above, we used GCC compiler.  ICC gives worse results except $2 \times 2$ case which is better due to fewer instructions.
