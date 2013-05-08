@@ -218,4 +218,8 @@ The optimization was started to increase 32x32 performance because there was a b
 For all the optimizations that we have implemented above, we used GCC compiler.  ICC gives worse results except $2 \times 2$ case which is better due to fewer instructions.
 
 We've also tried -funroll-loop flag to unroll loops and -ftree-vectorize to do SSE2 automatically.  However, neither flag seems to make a lot of difference and we end up implementing both unrolling and SSE2 manually.
+
+\subsection Observation
+There were a nubmber of artifacts we observed. Performance numbers vary noticably  from compile to compile and depending on whos account was uset.SSE2 _mm_set is slower that load + unpack. For some sizes ICC worked better that GCC. We almos saw results missmatch with ICC but not GCC and it was differnet on claster vs dink or our local machine 
+
 \end{document}
