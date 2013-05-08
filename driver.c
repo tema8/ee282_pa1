@@ -64,12 +64,12 @@ int events[] = {
   //PAPI_SR_INS,
 
   //$ Misses
-  PAPI_L1_DCM,
-  PAPI_L2_TCM,
+  //PAPI_L1_DCM,
+  //PAPI_L2_TCM,
 
   //$ Access
-  //PAPI_L1_TCA,
-  //PAPI_L2_TCA ,
+  PAPI_L1_DCA,
+  PAPI_L2_TCA ,
 
 
   //PAPI_L1_ICA,

@@ -1,8 +1,38 @@
 \documentclass{article}
 \usepackage[margin=0.5in]{geometry}
-\usepackage{amsmath, amssymb, hyperref}
+\usepackage{amsmath, amssymb, hyperref, fancyhdr, graphicx}
+\pagestyle{fancy}
+\lhead{EE282 PA1, Artem Vasilyev \& Lingren Zhang}
+\rhead{}
 \begin{document}
 \section{Summary}
+Below is the performance summary of our current implementation obtained with GCC compiler:
+\begin{table}[htbp]
+\tiny
+\caption{Summary}
+\begin{tabular}{|r|r|r|r|r|r|r|r|r|r|r|r|}
+\hline
+Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2 misses & \multicolumn{1}{l|}{L1D accesses} & \multicolumn{1}{l|}{ L2 accesses} & \multicolumn{1}{l|}{L1D miss rate} & \multicolumn{1}{l|}{L2 miss rate} & \multicolumn{1}{l|}{CPI} \\ \hline
+2 & 1805.83 & 0 & 44 & 21 & 0 & 0 & 22 & 0 & 0 & 0 & 0.48 \\ \hline
+4 & 4366.92 & 0 & 174 & 68 & 0 & 0 & 99 & 0 & 0 & 0 & 0.39 \\ \hline
+8 & 4503.28 & 0 & 1,150 & 528 & 0 & 0 & 623 & 0 & 0 & 0 & 0.46 \\ \hline
+16 & 5459.13 & 0 & 8,999 & 3,499 & 0 & 0 & 4,507 & 0 & 0 & 0 & 0.39 \\ \hline
+32 & 6572.47 & 0.01 & 55,409 & 23,259 & 12 & 0 & 26,694 & 18 & 0.04 & 0 & 0.42 \\ \hline
+64 & 6940.07 & 0.08 & 422,298 & 176,214 & 3,249 & 0 & 172,443 & 4,267 & 1.88 & 0 & 0.42 \\ \hline
+128 & 6794.34 & 0.62 & 3,377,742 & 1,434,701 & 43,028 & 0 & 1,376,330 & 70,856 & 3.13 & 0 & 0.42 \\ \hline
+256 & 6449.8 & 5.2 & 27,020,872 & 12,040,422 & 515,048 & 225 & 11,011,004 & 1,206,328 & 4.68 & 0.02 & 0.45 \\ \hline
+512 & 4812.29 & 55.78 & 247,304,246 & 129,315,203 & 11,542,820 & 115,943 & 88,459,296 & 20,492,626 & 13.05 & 0.57 & 0.52 \\ \hline
+1024 & 4161.53 & 516.03 & 1,670,373,328 & 1,192,039,842 & 44,462,792 & 5,039,958 & 833,376,675 & 102,891,767 & 5.34 & 4.9 & 0.71 \\ \hline
+2048 & 4554.29 & 3772.24 & 11,772,294,887 & 8,773,104,515 & 319,598,020 & 46,714,355 & 5,884,662,574 & 731,447,323 & 5.43 & 6.39 & 0.75 \\ \hline
+\end{tabular}
+\label{}
+\end{table}
+
+For $16\times16$ we get 5459.13 MFLOPS, 0.39 CPI, 0 cache miss rate.  For $256\times256$ we get 6449.8 MFLOPS, 0.45 CPI, 4.68\% L1D cache miss rate and 0.02\% L2 cache miss rate.  For $1024\times1024$ we get 4161.53 MFLOPS, 0.71 CPI, 5.34\% L1D cache miss rate and 4.9\% L2 cache miss rate.  Below is a plot of improvements achieved via various optimizations:
+
+\includegraphics[scale = 0.8]{Performance.jpg}
+
+
 \section{Optimizations Attempted}
 \subsection{Naive Implementation}
 \begin{table}[htbp]
@@ -131,9 +161,36 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \label{}
 \end{table}
 
+\subsection{Dedicated Functions}
+We used dedicated functions for $2\times2$-$256\times256$, this gives compiler a chance to do better optimization because loop size is fixed.  On average, there is a $2\times$ increase of MOPS for $2\times2$-$256\times256$.
 
-\subsection{Dedicated Functions For 2$\times$2-32$\times$32 (Loop Unroll)}
-Waiting on more awesome optimization from Artem...
+We also rewrote the kernel function ($32\times32$) of Strassen.  We realized that we had great reuse of A but C was loaded/stored N times and we should unroll
+that to increase temporal locality. This means reading several A value and computing A[1][1]*B[1][1]+A[1][2]*B[2][1] vs just A[1][1]*B[1][1] as long as
+unroll factor is small and we don't evict things from the cache.  This will be better because it reuses a number of load/stores.  For instance, for 32x32 we used to have 19980 loads and 18503 stores, with the new code we get 21516/4103.  After implementation we observed a significant increase of MOPS for $512\times512$ and above.
+
+\begin{table}[htbp]
+\tiny
+\caption{Dedicated Functions}
+\begin{tabular}{|r|r|r|r|r|r|r|r|r|r|r|r|}
+\hline
+Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2 misses & \multicolumn{1}{l|}{L1D accesses} & \multicolumn{1}{l|}{ L2 accesses} & \multicolumn{1}{l|}{L1D miss rate} & \multicolumn{1}{l|}{L2 miss rate} & \multicolumn{1}{l|}{CPI} \\ \hline
+2 & 1805.83 & 0 & 44 & 21 & 0 & 0 & 22 & 0 & 0 & 0 & 0.48 \\ \hline
+4 & 4366.92 & 0 & 174 & 68 & 0 & 0 & 99 & 0 & 0 & 0 & 0.39 \\ \hline
+8 & 4503.28 & 0 & 1,150 & 528 & 0 & 0 & 623 & 0 & 0 & 0 & 0.46 \\ \hline
+16 & 5459.13 & 0 & 8,999 & 3,499 & 0 & 0 & 4,507 & 0 & 0 & 0 & 0.39 \\ \hline
+32 & 6572.47 & 0.01 & 55,409 & 23,259 & 12 & 0 & 26,694 & 18 & 0.04 & 0 & 0.42 \\ \hline
+64 & 6940.07 & 0.08 & 422,298 & 176,214 & 3,249 & 0 & 172,443 & 4,267 & 1.88 & 0 & 0.42 \\ \hline
+128 & 6794.34 & 0.62 & 3,377,742 & 1,434,701 & 43,028 & 0 & 1,376,330 & 70,856 & 3.13 & 0 & 0.42 \\ \hline
+256 & 6449.8 & 5.2 & 27,020,872 & 12,040,422 & 515,048 & 225 & 11,011,004 & 1,206,328 & 4.68 & 0.02 & 0.45 \\ \hline
+512 & 4812.29 & 55.78 & 247,304,246 & 129,315,203 & 11,542,820 & 115,943 & 88,459,296 & 20,492,626 & 13.05 & 0.57 & 0.52 \\ \hline
+1024 & 4161.53 & 516.03 & 1,670,373,328 & 1,192,039,842 & 44,462,792 & 5,039,958 & 833,376,675 & 102,891,767 & 5.34 & 4.9 & 0.71 \\ \hline
+2048 & 4554.29 & 3772.24 & 11,772,294,887 & 8,773,104,515 & 319,598,020 & 46,714,355 & 5,884,662,574 & 731,447,323 & 5.43 & 6.39 & 0.75 \\ \hline
+\end{tabular}
+\label{}
+\end{table}
+
 \subsection{Compiler Flags}
 For all the optimizations that we have implemented above, we used GCC compiler.  ICC gives worse results except $2 \times 2$ case which is better due to fewer instructions.
+
+We've also tried -funroll-loop flag to unroll loops and -ftree-vectorize to do SSE2 automatically.  However, neither flag seems to make a lot of difference and we end up implementing both unrolling and SSE2 manually.
 \end{document}
