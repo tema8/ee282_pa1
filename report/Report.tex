@@ -13,22 +13,22 @@ Below is the performance summary of our current implementation obtained with GCC
 \begin{tabular}{|r|r|r|r|r|r|r|r|r|r|r|r|}
 \hline
 Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2 misses & \multicolumn{1}{l|}{L1D accesses} & \multicolumn{1}{l|}{ L2 accesses} & \multicolumn{1}{l|}{L1D miss rate} & \multicolumn{1}{l|}{L2 miss rate} & \multicolumn{1}{l|}{CPI} \\ \hline
-2 & 1805.83 & 0 & 44 & 21 & 0 & 0 & 22 & 0 & 0 & 0 & 0.48 \\ \hline
-4 & 4366.92 & 0 & 174 & 68 & 0 & 0 & 99 & 0 & 0 & 0 & 0.39 \\ \hline
-8 & 4503.28 & 0 & 1,150 & 528 & 0 & 0 & 623 & 0 & 0 & 0 & 0.46 \\ \hline
-16 & 5459.13 & 0 & 8,999 & 3,499 & 0 & 0 & 4,507 & 0 & 0 & 0 & 0.39 \\ \hline
-32 & 6572.47 & 0.01 & 55,409 & 23,259 & 12 & 0 & 26,694 & 18 & 0.04 & 0 & 0.42 \\ \hline
-64 & 6940.07 & 0.08 & 422,298 & 176,214 & 3,249 & 0 & 172,443 & 4,267 & 1.88 & 0 & 0.42 \\ \hline
-128 & 6794.34 & 0.62 & 3,377,742 & 1,434,701 & 43,028 & 0 & 1,376,330 & 70,856 & 3.13 & 0 & 0.42 \\ \hline
-256 & 6449.8 & 5.2 & 27,020,872 & 12,040,422 & 515,048 & 225 & 11,011,004 & 1,206,328 & 4.68 & 0.02 & 0.45 \\ \hline
-512 & 4812.29 & 55.78 & 247,304,246 & 129,315,203 & 11,542,820 & 115,943 & 88,459,296 & 20,492,626 & 13.05 & 0.57 & 0.52 \\ \hline
-1024 & 4161.53 & 516.03 & 1,670,373,328 & 1,192,039,842 & 44,462,792 & 5,039,958 & 833,376,675 & 102,891,767 & 5.34 & 4.9 & 0.71 \\ \hline
-2048 & 4554.29 & 3772.24 & 11,772,294,887 & 8,773,104,515 & 319,598,020 & 46,714,355 & 5,884,662,574 & 731,447,323 & 5.43 & 6.39 & 0.75 \\ \hline
+2 & 2224.86 & 0 & 39 & 17 & 0 & 0 & 18 & 0 & 0.00 & 0.00 & 0.44 \\ \hline
+4 & 4339.93 & 0 & 169 & 69 & 0 & 0 & 95 & 0 & 0.00 & 0.00 & 0.41 \\ \hline
+8 & 5518.53 & 0 & 1,030 & 431 & 0 & 0 & 466 & 0 & 0.00 & 0.00 & 0.42 \\ \hline
+\textbf{16} & \textbf{5665.63} & \textbf{0} & \textbf{7,302} & \textbf{3,357} & \textbf{0} & \textbf{0} & \textbf{3,479} & \textbf{0} & \textbf{0.00} & \textbf{0.00} & \textbf{0.46} \\ \hline
+32 & 6574.44 & 0.01 & 55,405 & 23,243 & 10 & 0 & 26,691 & 11 & 0.04 & 0.00 & 0.42 \\ \hline
+64 & 6904.44 & 0.08 & 422,294 & 176,259 & 3,244 & 0 & 172,442 & 4,310 & 1.88 & 0.00 & 0.42 \\ \hline
+128 & 6790.16 & 0.62 & 3,377,738 & 1,434,634 & 42,958 & 0 & 1,376,328 & 71,130 & 3.12 & 0.00 & 0.42 \\ \hline
+\textbf{256} & \textbf{6475.6} & \textbf{5.18} & \textbf{27,020,868} & \textbf{12,035,110} & \textbf{513,636} & \textbf{90} & \textbf{11,011,039} & \textbf{1,204,339} & \textbf{4.66} & \textbf{0.01} & \textbf{0.45} \\ \hline
+512 & 5142.12 & 52.2 & 240,684,641 & 121,874,937 & 10,649,198 & 149,363 & 86,022,844 & 19,644,528 & 12.38 & 0.76 & 0.51 \\ \hline
+\textbf{1024} & \textbf{5048.63} & \textbf{425.36} & \textbf{1,902,186,269} & \textbf{994,492,897} & \textbf{80,563,811} & \textbf{2,143,165} & \textbf{681,283,251} & \textbf{158,244,880} & \textbf{11.83} & \textbf{1.35} & \textbf{0.52} \\ \hline
+2048 & 4852.77 & 3540.22 & 15,217,487,071 & 8,231,334,587 & 653,247,730 & 28,407,812 & 5,455,979,061 & 1,295,043,980 & 11.97 & 2.19 & 0.54 \\ \hline
 \end{tabular}
 \label{}
 \end{table}
 
-For $16\times16$ we get 5459.13 MFLOPS, 0.39 CPI, 0 cache miss rate.  For $256\times256$ we get 6449.8 MFLOPS, 0.45 CPI, 4.68\% L1D cache miss rate and 0.02\% L2 cache miss rate.  For $1024\times1024$ we get 4161.53 MFLOPS, 0.71 CPI, 5.34\% L1D cache miss rate and 4.9\% L2 cache miss rate.  Below is a plot of improvements achieved via various optimizations:
+For $16\times16$ we get 5665.63 MFLOPS, 0.46 CPI, 0 cache miss rate.  For $256\times256$ we get 6475.6 MFLOPS, 0.45 CPI, 4.66\% L1D cache miss rate and 0.01\% L2 cache miss rate.  For $1024\times1024$ we get 5048.63 MFLOPS, 0.52 CPI, 11.83\% L1D cache miss rate and 1.35\% L2 cache miss rate.  Below is a plot of improvements achieved via various optimizations:
 
 \includegraphics[scale = 0.8]{Performance.jpg}
 
@@ -57,7 +57,7 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \end{table}
 
 \subsection{SSE2}
-SSE are 128-bit vector instructions which take advantage of the data level parallelism and can do two double precision math operations instead of one.  The operation performed on two pairs has to be the same (two multiplications or two additions etc). We expect to get about 2$\times$ performance increase with this. And after implementation a jump for all matrices except $2\times 2$ which goes from 770 MOPS to 830 MOPS. The desrepancy for the $2\times2$ matrix is because of the large \% of overhead instructions compared to those for the bigger matrixes.
+SSE are 128-bit vector instructions which take advantage of the data level parallelism and can do two double precision math operations instead of one.  The operation performed on two pairs has to be the same (two multiplications or two additions etc). We expect to get about 2$\times$ performance increase with this. And after implementation there is a jump for all matrices except $2\times 2$ which goes from 770 MOPS to 830 MOPS. The desrepancy for the $2\times2$ matrix is because of the large \% of overhead instructions compared to those for the bigger matrixes.
 \url{http://en.wikipedia.org/wiki/SSE2}
 
 In addition, we expect to see fewer L1 and L2 cache misses due to the fact that in the SSE2 implementation we access both A and B matrix in row major order which aligns with the way they are stored, we expect cache misses to reduce to about $1/8$ because each cache line (64kB) holds 8 doubles.  We can verify in the table that there is a reduction in cache misses and performance improves more than $2\times$ for all matrices except $2\times2$.
@@ -162,6 +162,8 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \end{table}
 
 \subsection{Dedicated Functions}
+{\bf (split this into two sections dedicated functions and strassen kernel?) }
+
 We used dedicated functions for $2\times2$-$256\times256$, this gives compiler a chance to do better optimization because loop size is fixed.  On average, there is a $2\times$ increase of MOPS for $2\times2$-$256\times256$.
 
 We also rewrote the kernel function ($32\times32$) of Strassen.  We realized that we had great reuse of A but C was loaded/stored N times and we should unroll
@@ -188,6 +190,28 @@ Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2
 \end{tabular}
 \label{}
 \end{table}
+
+\subsection{Final Results}
+\begin{table}[htbp]
+\caption{}
+\begin{tabular}{|r|r|r|r|r|r|r|r|r|r|r|r|}
+\hline
+Dim. &   MFLOPS &     Runtime & Instr completed & Total cycles & L1D misses & L2 misses & \multicolumn{1}{l|}{L1D accesses} & \multicolumn{1}{l|}{ L2 accesses} & \multicolumn{1}{l|}{L1D miss rate} & \multicolumn{1}{l|}{L2 miss rate} & \multicolumn{1}{l|}{CPI} \\ \hline
+2 & 2224.86 & 0 & 39 & 17 & 0 & 0 & 18 & 0 & 0.00 & 0.00 & 0.44 \\ \hline
+4 & 4339.93 & 0 & 169 & 69 & 0 & 0 & 95 & 0 & 0.00 & 0.00 & 0.41 \\ \hline
+8 & 5518.53 & 0 & 1,030 & 431 & 0 & 0 & 466 & 0 & 0.00 & 0.00 & 0.42 \\ \hline
+\textbf{16} & \textbf{5665.63} & \textbf{0} & \textbf{7,302} & \textbf{3,357} & \textbf{0} & \textbf{0} & \textbf{3,479} & \textbf{0} & \textbf{0.00} & \textbf{0.00} & \textbf{0.46} \\ \hline
+32 & 6574.44 & 0.01 & 55,405 & 23,243 & 10 & 0 & 26,691 & 11 & 0.04 & 0.00 & 0.42 \\ \hline
+64 & 6904.44 & 0.08 & 422,294 & 176,259 & 3,244 & 0 & 172,442 & 4,310 & 1.88 & 0.00 & 0.42 \\ \hline
+128 & 6790.16 & 0.62 & 3,377,738 & 1,434,634 & 42,958 & 0 & 1,376,328 & 71,130 & 3.12 & 0.00 & 0.42 \\ \hline
+\textbf{256} & \textbf{6475.6} & \textbf{5.18} & \textbf{27,020,868} & \textbf{12,035,110} & \textbf{513,636} & \textbf{90} & \textbf{11,011,039} & \textbf{1,204,339} & \textbf{4.66} & \textbf{0.01} & \textbf{0.45} \\ \hline
+512 & 5142.12 & 52.2 & 240,684,641 & 121,874,937 & 10,649,198 & 149,363 & 86,022,844 & 19,644,528 & 12.38 & 0.76 & 0.51 \\ \hline
+\textbf{1024} & \textbf{5048.63} & \textbf{425.36} & \textbf{1,902,186,269} & \textbf{994,492,897} & \textbf{80,563,811} & \textbf{2,143,165} & \textbf{681,283,251} & \textbf{158,244,880} & \textbf{11.83} & \textbf{1.35} & \textbf{0.52} \\ \hline
+2048 & 4852.77 & 3540.22 & 15,217,487,071 & 8,231,334,587 & 653,247,730 & 28,407,812 & 5,455,979,061 & 1,295,043,980 & 11.97 & 2.19 & 0.54 \\ \hline
+\end{tabular}
+\label{}
+\end{table}
+
 
 \subsection{Compiler Flags}
 For all the optimizations that we have implemented above, we used GCC compiler.  ICC gives worse results except $2 \times 2$ case which is better due to fewer instructions.
