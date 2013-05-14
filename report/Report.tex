@@ -217,7 +217,7 @@ For all the optimizations that we have implemented above, we used GCC compiler. 
 
 We've also tried -funroll-loop flag to unroll loops and -ftree-vectorize to do SSE2 automatically.  However, neither flag seems to make a lot of difference and we end up implementing both unrolling and SSE2 manually.
 
-\subsection Observation
-There were a nubmber of artifacts we observed. Performance numbers vary noticably  from compile to compile and depending on whos account was uset.SSE2 _mm_set is slower that load + unpack. For some sizes ICC worked better that GCC. We almos saw results missmatch with ICC but not GCC and it was differnet on claster vs dink or our local machine 
+\subsection{Observation}
+There were a number of artifacts we observed. Performance numbers vary noticably  from compile to compile and depending on whose account was used.  SSE2 \_mm\_set is slower that load + unpack. For some sizes ICC worked better that GCC. We also saw results missmatch with ICC but not GCC and it was different on cluster vs drink or our local machine.
 
 \end{document}
